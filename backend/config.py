@@ -1,26 +1,32 @@
+import onnxruntime as ort
+from fsplit.filesplit import Filesplit
+import stat
+import platform
+import logging
+import torch
+import os
 import warnings
 from enum import Enum, unique
 warnings.filterwarnings('ignore')
-import os
-import torch
-import logging
-import platform
-import stat
-from fsplit.filesplit import Filesplit
-import onnxruntime as ort
 
 # 项目版本号
 VERSION = "1.1.1"
 # ×××××××××××××××××××× [不要改] start ××××××××××××××××××××
 logging.disable(logging.DEBUG)  # 关闭DEBUG日志的打印
 logging.disable(logging.WARNING)  # 关闭WARNING日志的打印
-try:
-    import torch_directml
-    device = torch_directml.device(torch_directml.default_device())
-    USE_DML = True
-except:
-    USE_DML = False
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# 自动检测可用设备
+USE_DML = False
+if torch.cuda.is_available():
+    device = torch.device("cuda:0")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    try:
+        import torch_directml
+        device = torch_directml.device(torch_directml.default_device())
+        USE_DML = True
+    except:
+        device = torch.device("cpu")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LAMA_MODEL_PATH = os.path.join(BASE_DIR, 'models', 'big-lama')
 STTN_MODEL_PATH = os.path.join(BASE_DIR, 'models', 'sttn', 'infer_model.pth')
@@ -71,7 +77,8 @@ for provider in available_providers:
         "DmlExecutionProvider",         # DirectML，适用于 Windows GPU
         "ROCMExecutionProvider",        # AMD ROCm
         "MIGraphXExecutionProvider",    # AMD MIGraphX
-        "VitisAIExecutionProvider",     # AMD VitisAI，适用于 RyzenAI & Windows, 实测和DirectML性能似乎差不多
+        # AMD VitisAI，适用于 RyzenAI & Windows, 实测和DirectML性能似乎差不多
+        "VitisAIExecutionProvider",
         "OpenVINOExecutionProvider",    # Intel GPU
         "MetalExecutionProvider",       # Apple macOS
         "CoreMLExecutionProvider",      # Apple macOS
